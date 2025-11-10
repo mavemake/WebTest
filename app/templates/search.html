@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('main.search') }}">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="q" value="{{ query or '' }}" placeholder="Search for users or posts...">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if query %}
+            <h4>Search Results for "{{ query }}"</h4>
+            
+            {% if users %}
+                <h5>Users</h5>
+                {% for user in users %}
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 50px; height: 50px;">
+                                    <i class="bi bi-person"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-0">{{ user.first_name }} {{ user.last_name }}</h5>
+                                    <p class="text-muted mb-0">@{{ user.username }}</p>
+                                    <p class="mb-0">{{ user.location }}</p>
+                                </div>
+                                <a href="{{ url_for('main.profile', username=user.username) }}" class="btn btn-outline-primary">View Profile</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if posts %}
+                <h5>Posts</h5>
+                {% for post in posts %}
+                    <div class="post-card">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 40px; height: 40px;">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">{{ post.author.first_name }} {{ post.author.last_name }}</h6>
+                                <small class="text-muted">{{ post.author.location }} · {{ post.date_posted.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </div>
+                        </div>
+                        {% if post.title %}
+                            <h5>{{ post.title }}</h5>
+                        {% endif %}
+                        <p>{{ post.content }}</p>
+                        <div class="d-flex border-top border-bottom py-2">
+                            <button class="btn btn-sm like-button">
+                                <i class="bi bi-heart"></i> {{ post.like_count() }}
+                            </button>
+                            <a href="{{ url_for('main.post', post_id=post.id) }}" class="btn btn-sm">
+                                <i class="bi bi-chat"></i> {{ post.comments|length }}
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if not users and not posts %}
+                <div class="text-center">
+                    <i class="bi bi-search" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="mt-3">No results found for "{{ query }}"</p>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center">
+                <i class="bi bi-search" style="font-size: 3rem; color: #ccc;"></i>
+                <p class="mt-3">Search for users or posts</p>
+            </div>
+        {% endif %}
+    </div>
+    <div class="col-md-4">
+        <!-- Chatbot Section -->
+        <div class="card">
+            <div class="card-header">
+                <h5>Chat Assistant</h5>
+            </div>
+            <div class="card-body">
+                <div id="chatbot-messages" style="height: 300px; overflow-y: auto; margin-bottom: 15px;">
+                    <div class="alert alert-info">
+                        <strong>Assistant:</strong> Hello! I'm your assistant. How can I help you today?
+                    </div>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="chatbot-input" class="form-control" placeholder="Ask me anything...">
+                    <button class="btn btn-primary" id="chatbot-send">Send</button>
+                </div>
+                <div class="form-text mt-2">
+                    <small>Powered by Clyde AI. Ask questions about the platform or get help with features.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Chatbot functionality
+    document.getElementById('chatbot-send').addEventListener('click', sendMessage);
+    document.getElementById('chatbot-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    // Focus the input field when the page loads
+    window.addEventListener('load', function() {
+        document.getElementById('chatbot-input').focus();
+    });
+
+    function sendMessage() {
+        const input = document.getElementById('chatbot-input');
+        const message = input.value.trim();
+        
+        if (message) {
+            // Add user message to chat
+            addMessageToChat(message, 'user');
+            input.value = '';
+            
+            // Send to Gemini API
+            fetchGeminiResponse(message);
+        }
+    }
+
+    function addMessageToChat(message, sender) {
+        const chatContainer = document.getElementById('chatbot-messages');
+        const messageDiv = document.createElement('div');
+        
+        if (sender === 'user') {
+            messageDiv.className = 'alert alert-primary text-end';
+            messageDiv.innerHTML = `<strong>You:</strong> ${message}`;
+        } else {
+            messageDiv.className = 'alert alert-secondary';
+            messageDiv.innerHTML = `<strong>Assistant:</strong> ${message}`;
+        }
+        
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function fetchGeminiResponse(message) {
+        // Show loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'alert alert-secondary';
+        loadingDiv.innerHTML = '<strong>Assistant:</strong> Thinking...';
+        loadingDiv.id = 'loading-message';
+        document.getElementById('chatbot-messages').appendChild(loadingDiv);
+        document.getElementById('chatbot-messages').scrollTop = document.getElementById('chatbot-messages').scrollHeight;
+
+        // Try different models in order of preference
+        const models = [
+            'gemini-2.5-flash-preview-05-20',  // Flash model (faster, cheaper)
+            'gemini-2.5-pro-preview-03-25',    // Pro model (more capable)
+            'gemini-1.5-pro-exp-0827',         // Alternative pro model
+            'gemini-1.5-flash-exp-0827'        // Alternative flash model
+        ];
+
+        // Function to try a model
+        function tryModel(index) {
+            if (index >= models.length) {
+                // Remove loading indicator
+                if (document.getElementById('loading-message')) {
+                    document.getElementById('loading-message').remove();
+                }
+                addMessageToChat("Sorry, I'm unable to connect to the AI service right now. Please try again later.", 'assistant');
+                return;
+            }
+
+            const model = models[index];
+            console.log(`Trying model: ${model}`);
+
+            // Make API request to Gemini
+            fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=AIzaSyDwflXXlKATYSUqPWXs8UFaFe8PNvCoVe8`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: message
+                        }]
+                    }]
+                })
+            })
+            .then(response => {
+                console.log(`Model ${model} response status:`, response.status);
+                
+                // Always try to read the response body
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    return response.json().then(data => ({ data, status: response.status, ok: response.ok, model: model }));
+                } else {
+                    return response.text().then(text => ({ text, status: response.status, ok: response.ok, model: model }));
+                }
+            })
+            .then(result => {
+                console.log(`Model ${result.model} full result:`, result);
+                
+                if (result.status === 429) {
+                    // Rate limit exceeded, try next model
+                    console.log(`Rate limit for model ${result.model}, trying next model...`);
+                    tryModel(index + 1);
+                    return;
+                }
+                
+                // Remove loading indicator
+                if (document.getElementById('loading-message')) {
+                    document.getElementById('loading-message').remove();
+                }
+                
+                if (!result.ok) {
+                    let errorMessage = "Sorry, I'm having trouble connecting. Please try again.";
+                    if (result.status === 401) {
+                        errorMessage = "Authentication error. The API key may be invalid.";
+                    } else if (result.status === 403) {
+                        errorMessage = "Access forbidden. Please check API key permissions.";
+                    } else if (result.status === 429) {
+                        errorMessage = "Rate limit exceeded. Please wait a moment and try again.";
+                    } else if (result.data) {
+                        errorMessage = `API Error (${result.status}): ${JSON.stringify(result.data)}`;
+                    } else if (result.text) {
+                        errorMessage = `API Error (${result.status}): ${result.text}`;
+                    }
+                    addMessageToChat(errorMessage, 'assistant');
+                    return;
+                }
+                
+                // Handle successful response
+                if (result.data && result.data.candidates && result.data.candidates.length > 0 && 
+                    result.data.candidates[0].content && result.data.candidates[0].content.parts && 
+                    result.data.candidates[0].content.parts.length > 0) {
+                    const responseText = result.data.candidates[0].content.parts[0].text;
+                    addMessageToChat(responseText, 'assistant');
+                } else if (result.data && result.data.promptFeedback && result.data.promptFeedback.blockReason) {
+                    addMessageToChat("Sorry, your message was blocked for safety reasons. Please try rephrasing.", 'assistant');
+                } else {
+                    addMessageToChat("Sorry, I couldn't process that request. Please try again.", 'assistant');
+                    console.log('Unexpected response format:', result);
+                }
+            })
+            .catch(error => {
+                console.error(`Model ${model} fetch error:`, error);
+                // Try next model on network errors
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    console.log(`Network error for model ${model}, trying next model...`);
+                    tryModel(index + 1);
+                } else {
+                    // Remove loading indicator
+                    if (document.getElementById('loading-message')) {
+                        document.getElementById('loading-message').remove();
+                    }
+                    
+                    // Show error message
+                    let errorMessage = "Sorry, I'm having trouble connecting. Please try again.";
+                    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                        errorMessage = "Network error. Please check your internet connection and try again.";
+                    } else {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    
+                    addMessageToChat(errorMessage, 'assistant');
+                }
+            });
+        }
+
+        // Start with the first model
+        tryModel(0);
+    }
+</script>
+{% endblock %}

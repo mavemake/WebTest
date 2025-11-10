@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        {% if current_user.is_authenticated %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form action="{{ url_for('main.new_post') }}" method="POST" enctype="multipart/form-data">
+                        {{ post_form.hidden_tag() if post_form }}
+                        <div class="mb-3">
+                            <textarea class="form-control" name="content" placeholder="What's on your mind?" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="media" class="form-label">Upload Photo/Video</label>
+                            <div class="custom-file-upload">
+                                <label for="media" class="btn btn-outline-primary rounded-circle" style="width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-plus-lg" style="font-size: 1.5rem;"></i>
+                                </label>
+                                <input type="file" class="form-control d-none" id="media" name="media" accept="image/*,video/*">
+                            </div>
+                            <div id="post-media-preview" class="mt-2"></div>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">Post</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="post-container">
+            {% for post in posts.items %}
+                <div class="post-card">
+                    <div class="d-flex align-items-center mb-3">
+                        {% if post.author.profile_image and post.author.profile_image != 'default_profile.jpg' %}
+                            <img src="{{ url_for('static', filename=post.author.profile_image) }}" alt="Profile Picture" class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 40px; height: 40px;">
+                                <i class="bi bi-person"></i>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <h6 class="mb-0">{{ post.author.first_name }} {{ post.author.last_name }}</h6>
+                            {% if post.is_shared %}
+                                <small class="text-muted">Shared {{ post.original_author.first_name }} {{ post.original_author.last_name }}'s post · {{ post.date_posted.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% else %}
+                                <small class="text-muted">{{ post.author.location }} · {{ post.date_posted.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if post.title %}
+                        <h5>{{ post.title }}</h5>
+                    {% endif %}
+                    <p>{{ post.content }}</p>
+                    {% if post.media_files %}
+                        {% for media in post.media_files %}
+                            {% if media.media_type == 'image' %}
+                                <img src="{{ media.filename }}" class="img-fluid rounded mb-3" alt="Post image" style="cursor: pointer; max-width: 100%; height: auto;">
+                            {% elif media.media_type == 'video' %}
+                                <video controls class="img-fluid rounded mb-3" style="max-width: 100%; height: auto;">
+                                    <source src="{{ media.filename }}" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            {% endif %}
+                        {% endfor %}
+                    {% elif post.media_url %}
+                        <!-- Fallback for old posts with single media -->
+                        {% if post.media_type == 'image' %}
+                            <img src="{{ post.media_url }}" class="img-fluid rounded mb-3" alt="Post image" style="cursor: pointer; max-width: 100%; height: auto;">
+                        {% elif post.media_type == 'video' %}
+                            <video controls class="img-fluid rounded mb-3" style="max-width: 100%; height: auto;">
+                                <source src="{{ post.media_url }}" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        {% endif %}
+                    {% endif %}
+                    <div class="d-flex border-top border-bottom py-2">
+                        {% set user_liked = post.likes | selectattr('user_id', 'equalto', current_user.id) | list if current_user.is_authenticated else [] %}
+                        <button class="btn btn-sm like-button {{ 'liked' if user_liked else '' }}" 
+                                data-post-id="{{ post.id }}">
+                            <i class="bi bi-heart"></i> <span class="like-count">{{ post.like_count() }}</span>
+                        </button>
+                        <a href="{{ url_for('main.post', post_id=post.id) }}" class="btn btn-sm">
+                            <i class="bi bi-chat"></i> {{ post.comments|length }}
+                        </a>
+                        <button class="btn btn-sm share-button" data-post-id="{{ post.id }}">
+                            <i class="bi bi-share"></i> <span class="share-count">{{ post.share_count() }}</span>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination removed for infinite scroll -->
+    </div>
+    <div class="col-md-4">
+        {% if current_user.is_authenticated %}
+            <div class="profile-header">
+                <div class="d-flex align-items-center mb-3">
+                    {% if current_user.profile_image and current_user.profile_image != 'default_profile.jpg' %}
+                        <img src="{{ url_for('static', filename=current_user.profile_image) }}" alt="Profile Picture" class="rounded-circle me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                    {% else %}
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 60px; height: 60px;">
+                            <i class="bi bi-person" style="font-size: 1.5rem;"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h5 class="mb-0">{{ current_user.first_name }} {{ current_user.last_name }}</h5>
+                        <p class="text-muted mb-0">{{ current_user.location }}</p>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-around text-center">
+                    <div>
+                        <h6>{{ current_user.posts|length }}</h6>
+                        <small class="text-muted">Posts</small>
+                    </div>
+                    <div>
+                        <h6>{{ current_user.children_count }}</h6>
+                        <small class="text-muted">Children</small>
+                    </div>
+                    <div>
+                        <h6>{{ current_user.partners_count }}</h6>
+                        <small class="text-muted">Partners Met</small>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5>Join Single Mothers Connect</h5>
+                    <p>Connect with other single mothers in your area.</p>
+                    <a href="{{ url_for('main.register') }}" class="btn btn-primary">Sign Up</a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('media').addEventListener('change', function(event) {
+        const files = event.target.files;
+        const preview = document.getElementById('post-media-preview');
+        
+        // Clear previous preview
+        preview.innerHTML = '';
+        
+        // Handle multiple files
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    if (file.type.startsWith('image/')) {
+                        // Create image preview
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'img-fluid rounded';
+                        img.style.maxHeight = '300px';
+                        img.style.marginRight = '10px';
+                        img.style.marginBottom = '10px';
+                        preview.appendChild(img);
+                    } else if (file.type.startsWith('video/')) {
+                        // Create video preview
+                        const video = document.createElement('video');
+                        video.src = e.target.result;
+                        video.className = 'img-fluid rounded';
+                        video.style.maxHeight = '300px';
+                        video.style.marginRight = '10px';
+                        video.style.marginBottom = '10px';
+                        video.controls = true;
+                        preview.appendChild(video);
+                    }
+                };
+                
+                reader.readAsDataURL(file);
+            }
+        }
+    });
+</script>
+{% endblock %}

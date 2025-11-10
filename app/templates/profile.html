@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <div class="me-3">
+        {% if user.profile_image and user.profile_image != 'default_profile.jpg' %}
+            <img src="{{ url_for('static', filename=user.profile_image) }}" alt="Profile Picture" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;">
+        {% else %}
+            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 100px; height: 100px;">
+                <i class="bi bi-person" style="font-size: 2rem;"></i>
+            </div>
+        {% endif %}
+    </div>
+    <div>
+        <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+        <p class="text-muted">{{ user.location }}</p>
+        <p>{{ user.bio }}</p>
+    </div>
+    {% if current_user == user %}
+        <div class="ms-auto">
+            <a href="{{ url_for('main.edit_profile') }}" class="btn btn-outline-primary">Edit Profile</a>
+        </div>
+    {% else %}
+        <div class="ms-auto">
+            <a href="{{ url_for('main.send_message', user_id=user.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-envelope"></i> Message
+            </a>
+            {% if current_user.is_authenticated %}
+                {% set friendship = user.get_friendship_with(current_user) %}
+                {% if friendship %}
+                    {% if friendship.status == 'pending' %}
+                        {% if friendship.user_id == current_user.id %}
+                            <button class="btn btn-outline-secondary" disabled>
+                                <i class="bi bi-person-plus"></i> Request Sent
+                            </button>
+                        {% else %}
+                            <button class="btn btn-outline-success accept-friend-btn" data-user-id="{{ user.id }}">
+                                <i class="bi bi-check"></i> Accept Request
+                            </button>
+                        {% endif %}
+                    {% elif friendship.status == 'accepted' %}
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="bi bi-person-check"></i> Friends
+                        </button>
+                    {% endif %}
+                {% else %}
+                    <button class="btn btn-outline-success add-friend-btn" data-user-id="{{ user.id }}">
+                        <i class="bi bi-person-plus"></i> Add Friend
+                    </button>
+                {% endif %}
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+<div class="d-flex justify-content-around text-center">
+    <div>
+        <h5>{{ user.posts|length }}</h5>
+        <small class="text-muted">Posts</small>
+    </div>
+    <div>
+        <h5>{{ user.children_count }}</h5>
+        <small class="text-muted">Children</small>
+    </div>
+    <div>
+        <h5>{{ user.partners_count }}</h5>
+        <small class="text-muted">Partners Met</small>
+    </div>
+    <div>
+        <h5>{{ user.date_joined.strftime('%Y') }}</h5>
+        <small class="text-muted">Member since</small>
+    </div>
+</div>
+
+<h4 class="mb-4">Posts</h4>
+{% for post in posts.items %}
+    <div class="post-card">
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 40px; height: 40px;">
+                <i class="bi bi-person"></i>
+            </div>
+            <div>
+                <h6 class="mb-0">{{ post.author.first_name }} {{ post.author.last_name }}</h6>
+                <small class="text-muted">{{ post.author.location }} · {{ post.date_posted.strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+        </div>
+        {% if post.title %}
+            <h5>{{ post.title }}</h5>
+        {% endif %}
+        <p>{{ post.content }}</p>
+        {% if post.media_files %}
+            {% for media in post.media_files %}
+                {% if media.media_type == 'image' %}
+                    <img src="{{ media.filename }}" class="img-fluid rounded mb-3" alt="Post image" style="cursor: pointer; max-width: 100%; height: auto;">
+                {% elif media.media_type == 'video' %}
+                    <video controls class="img-fluid rounded mb-3" style="max-width: 100%; height: auto;">
+                        <source src="{{ media.filename }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                {% endif %}
+            {% endfor %}
+        {% elif post.media_url %}
+            <!-- Fallback for old posts with single media -->
+            {% if post.media_type == 'image' %}
+                <img src="{{ post.media_url }}" class="img-fluid rounded mb-3" alt="Post image" style="cursor: pointer; max-width: 100%; height: auto;">
+            {% elif post.media_type == 'video' %}
+                <video controls class="img-fluid rounded mb-3" style="max-width: 100%; height: auto;">
+                    <source src="{{ post.media_url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            {% endif %}
+        {% endif %}
+        <div class="d-flex border-top border-bottom py-2">
+            {% set user_liked = post.likes | selectattr('user_id', 'equalto', current_user.id) | list if current_user.is_authenticated else [] %}
+            <button class="btn btn-sm like-button {{ 'liked' if user_liked else '' }}" 
+                    data-post-id="{{ post.id }}">
+                <i class="bi bi-heart"></i> <span class="like-count">{{ post.like_count() }}</span>
+            </button>
+            <a href="{{ url_for('main.post', post_id=post.id) }}" class="btn btn-sm">
+                <i class="bi bi-chat"></i> {{ post.comments|length }}
+            </a>
+            <button class="btn btn-sm share-button" data-post-id="{{ post.id }}">
+                <i class="bi bi-share"></i> <span class="share-count">{{ post.share_count() }}</span>
+            </button>
+        </div>
+    </div>
+{% endfor %}
+
+<!-- Pagination -->
+{% if posts.pages > 1 %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if posts.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.profile', username=user.username, page=posts.prev_num) }}">Previous</a>
+                </li>
+            {% endif %}
+            
+            {% for page_num in posts.iter_pages() %}
+                {% if page_num %}
+                    {% if page_num != posts.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.profile', username=user.username, page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">…</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if posts.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.profile', username=user.username, page=posts.next_num) }}">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Handle add friend button
+    $(document).on('click', '.add-friend-btn', function() {
+        var userId = $(this).data('user-id');
+        var button = $(this);
+        
+        $.ajax({
+            url: '/user/' + userId + '/add_friend',
+            method: 'POST',
+            success: function(response) {
+                alert(response.message);
+                // Update button to show request sent
+                button.removeClass('btn-outline-success add-friend-btn')
+                      .addClass('btn-outline-secondary')
+                      .attr('disabled', true)
+                      .html('<i class="bi bi-person-plus"></i> Request Sent');
+            },
+            error: function(xhr) {
+                alert('Error: ' + xhr.responseJSON.message);
+            }
+        });
+    });
+    
+    // Handle accept friend button
+    $(document).on('click', '.accept-friend-btn', function() {
+        var userId = $(this).data('user-id');
+        var button = $(this);
+        
+        $.ajax({
+            url: '/user/' + userId + '/accept_friend',
+            method: 'POST',
+            success: function(response) {
+                alert(response.message);
+                // Update button to show friends
+                button.removeClass('btn-outline-success accept-friend-btn')
+                      .addClass('btn-outline-secondary')
+                      .attr('disabled', true)
+                      .html('<i class="bi bi-person-check"></i> Friends');
+            },
+            error: function(xhr) {
+                alert('Error: ' + xhr.responseJSON.message);
+            }
+        });
+    });
+</script>
+{% endblock %}

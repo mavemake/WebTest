@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Notifications</h4>
+            </div>
+            <div class="list-group list-group-flush">
+                {% if notifications %}
+                    {% for notification in notifications %}
+                        <div class="list-group-item">
+                            <div class="d-flex">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white me-3" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-bell"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-1">{{ notification.content }}</p>
+                                    <small class="text-muted">{{ notification.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </div>
+                                {% if not notification.is_read %}
+                                    <span class="badge bg-primary rounded-pill">New</span>
+                                {% endif %}
+                            </div>
+                            <!-- Friend request actions -->
+                            {% if notification.notification_type == 'friend_request' %}
+                                <div class="mt-2 d-flex gap-2">
+                                    <button class="btn btn-sm btn-success accept-friend" data-user-id="{{ notification.user_id }}">
+                                        <i class="bi bi-check"></i> Accept
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger reject-friend" data-user-id="{{ notification.user_id }}">
+                                        <i class="bi bi-x"></i> Reject
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="list-group-item text-center">
+                        <i class="bi bi-bell-slash" style="font-size: 2rem; color: #ccc;"></i>
+                        <p class="mt-2">No notifications yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Handle friend request acceptance
+    $(document).on('click', '.accept-friend', function() {
+        var userId = $(this).data('user-id');
+        var button = $(this);
+        
+        $.ajax({
+            url: '/user/' + userId + '/accept_friend',
+            method: 'POST',
+            success: function(response) {
+                alert(response.message);
+                // Remove the notification or update UI
+                button.closest('.list-group-item').fadeOut();
+            },
+            error: function(xhr) {
+                alert('Error: ' + xhr.responseJSON.message);
+            }
+        });
+    });
+    
+    // Handle friend request rejection
+    $(document).on('click', '.reject-friend', function() {
+        var userId = $(this).data('user-id');
+        var button = $(this);
+        
+        if (confirm('Are you sure you want to reject this friend request?')) {
+            $.ajax({
+                url: '/user/' + userId + '/reject_friend',
+                method: 'POST',
+                success: function(response) {
+                    alert(response.message);
+                    // Remove the notification or update UI
+                    button.closest('.list-group-item').fadeOut();
+                },
+                error: function(xhr) {
+                    alert('Error: ' + xhr.responseJSON.message);
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
