@@ -47,14 +47,16 @@ This script will create all missing tables while preserving existing data.
 
 ## Deployment
 
-This application is ready for deployment to platforms like Render, Heroku, or similar services. 
+This application is ready for deployment to platforms like Render, Heroku, or similar services.
 
 Key deployment files:
+
 - `Procfile`: Contains the command to run the application with Gunicorn
 - `requirements.txt`: Updated with gunicorn for production deployment
 - `runtime.txt`: Specifies Python version (3.12)
 
 Deployment steps:
+
 1. Push your code to a GitHub repository
 2. Connect your repository to your preferred deployment platform
 3. Set environment variables (SECRET_KEY, DATABASE_URL)

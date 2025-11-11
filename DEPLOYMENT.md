@@ -43,6 +43,7 @@ This guide will help you deploy the Single Mothers Connect application to Render
 ### 4. Configure Environment Variables
 
 In the "Advanced" section, add the following environment variables:
+
 - SECRET_KEY: Generate a strong secret key
 - FLASK_ENV: production
 
@@ -53,6 +54,7 @@ Click "Create Web Service" and wait for the deployment to complete.
 ## Database Considerations
 
 For production, consider using PostgreSQL instead of SQLite:
+
 1. Add a PostgreSQL database in Render
 2. Update the DATABASE_URL environment variable to point to your PostgreSQL database
 3. Update your requirements.txt to include psycopg2-binary:
@@ -70,6 +72,7 @@ For production, consider using PostgreSQL instead of SQLite:
 ## Monitoring and Logs
 
 Render provides built-in logging and monitoring:
+
 1. Go to your web service dashboard
 2. Click on "Logs" to view real-time logs
 3. Set up alerts if needed
@@ -77,6 +80,7 @@ Render provides built-in logging and monitoring:
 ## Scaling
 
 Render automatically scales your application based on traffic. For more control:
+
 1. Go to your web service dashboard
 2. Click on "Settings"
 3. Adjust the instance count and type as needed
@@ -84,6 +88,7 @@ Render automatically scales your application based on traffic. For more control:
 ## Troubleshooting
 
 If you encounter issues:
+
 1. Check the logs in the Render dashboard
 2. Ensure all environment variables are set correctly
 3. Verify your requirements.txt includes all necessary dependencies
